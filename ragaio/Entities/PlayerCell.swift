@@ -1,63 +1,52 @@
 import SpriteKit
 
 class PlayerCell: SKNode {
-    var shape: SKShapeNode!
-    var nameLabel: SKLabelNode!
-    var mass: CGFloat = 20 {
-        didSet {
-            updateScale()
-        }
-    }
+    var radius: CGFloat
+    var cellColor: UIColor
+    var mass: CGFloat = 30
     
-    var moveVector: CGPoint = .zero
-    var speedBase: CGFloat = 200
+    private var shapeNode: SKShapeNode!
+    private var glowNode: SKEffectNode!
     
-    init(name: String) {
+    init(radius: CGFloat, color: UIColor) {
+        self.radius = radius
+        self.cellColor = color
         super.init()
         
-        shape = SKShapeNode(circleOfRadius: 20)
-        shape.fillColor = .random()
-        shape.strokeColor = .black
-        shape.lineWidth = 2
-        addChild(shape)
-        
-        nameLabel = SKLabelNode(text: name)
-        nameLabel.fontSize = 12
-        nameLabel.fontColor = .white
-        nameLabel.verticalAlignmentMode = .center
-        addChild(nameLabel)
-        
-        physicsBody = SKPhysicsBody(circleOfRadius: 20)
-        physicsBody?.categoryBitMask = Constants.PhysicsCategory.player
-        physicsBody?.contactTestBitMask = Constants.PhysicsCategory.food | Constants.PhysicsCategory.virus | Constants.PhysicsCategory.bot
-        physicsBody?.collisionBitMask = Constants.PhysicsCategory.none
-        physicsBody?.isDynamic = true
-        physicsBody?.linearDamping = 2.0
+        setupVisuals()
     }
     
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    func updateScale() {
-        let radius = sqrt(mass / .pi) * 5
-        let scale = radius / 20
-        run(SKAction.scale(to: scale, duration: 0.2))
+    private func setupVisuals() {
+        shapeNode = SKShapeNode(circleOfRadius: radius)
+        shapeNode.fillColor = cellColor
+        shapeNode.strokeColor = .white
+        shapeNode.lineWidth = 2
         
-        physicsBody = SKPhysicsBody(circleOfRadius: radius)
-        physicsBody?.categoryBitMask = Constants.PhysicsCategory.player
-        physicsBody?.contactTestBitMask = Constants.PhysicsCategory.food | Constants.PhysicsCategory.virus | Constants.PhysicsCategory.bot
-        physicsBody?.collisionBitMask = Constants.PhysicsCategory.none
+        glowNode = SKEffectNode()
+        glowNode.shouldRasterize = true
+        let filter = CIFilter(name: "CIGaussianBlur")
+        filter?.setValue(8.0, forKey: kCIInputRadiusKey)
+        glowNode.filter = filter
+        
+        let glowShape = SKShapeNode(circleOfRadius: radius + 5)
+        glowShape.fillColor = cellColor
+        glowShape.strokeColor = .clear
+        glowShape.alpha = 0.6
+        glowNode.addChild(glowShape)
+        
+        addChild(glowNode)
+        addChild(shapeNode)
     }
     
-    func update(dt: TimeInterval) {
-        let movement = moveVector * speedBase * CGFloat(dt)
-        position = position + movement
+    func updateMass(_ newMass: CGFloat) {
+        self.mass = newMass
+        let newRadius = sqrt(newMass) * 5.0 // scale logic
         
-        let halfW = Constants.mapWidth / 2
-        let halfH = Constants.mapHeight / 2
-        
-        position.x = max(-halfW, min(halfW, position.x))
-        position.y = max(-halfH, min(halfH, position.y))
+        let scale = newRadius / radius
+        run(SKAction.scale(to: scale, duration: 0.2))
     }
 }

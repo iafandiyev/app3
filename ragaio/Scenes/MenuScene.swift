@@ -2,32 +2,57 @@ import SpriteKit
 
 class MenuScene: SKScene {
     override func didMove(to view: SKView) {
-        backgroundColor = .white
+        setupBackground()
+        setupUI()
+    }
+    
+    private func setupBackground() {
+        let bg = SKSpriteNode(imageNamed: "menu_bg")
+        bg.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        bg.size = size
+        bg.zPosition = -1
+        addChild(bg)
+    }
+    
+    private func setupUI() {
+        let titleNode = SKLabelNode(fontNamed: "HelveticaNeue-Bold")
+        titleNode.text = "RAGA.IO"
+        titleNode.fontSize = 80
+        titleNode.fontColor = .white
+        titleNode.position = CGPoint(x: size.width / 2, y: size.height / 2 + 100)
         
-        let title = SKLabelNode(text: "raga.io")
-        title.fontColor = .black
-        title.fontSize = 60
-        title.position = CGPoint(x: size.width / 2, y: size.height / 2 + 50)
-        addChild(title)
+        // Glow effect
+        let glowNode = SKEffectNode()
+        glowNode.shouldRasterize = true
+        let filter = CIFilter(name: "CIGaussianBlur")
+        filter?.setValue(10.0, forKey: kCIInputRadiusKey)
+        glowNode.filter = filter
         
-        let playBtn = SKLabelNode(text: "Play")
-        playBtn.name = "play"
-        playBtn.fontColor = .blue
-        playBtn.fontSize = 40
-        playBtn.position = CGPoint(x: size.width / 2, y: size.height / 2 - 50)
-        addChild(playBtn)
+        let titleCopy = titleNode.copy() as! SKLabelNode
+        titleCopy.fontColor = .cyan
+        glowNode.addChild(titleCopy)
+        
+        addChild(glowNode)
+        addChild(titleNode)
+        
+        let promptNode = SKLabelNode(fontNamed: "HelveticaNeue-Medium")
+        promptNode.text = "Tap to connect & play"
+        promptNode.fontSize = 30
+        promptNode.fontColor = .lightGray
+        promptNode.position = CGPoint(x: size.width / 2, y: size.height / 2 - 50)
+        
+        let pulseAction = SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.5, duration: 0.8),
+            SKAction.fadeAlpha(to: 1.0, duration: 0.8)
+        ])
+        promptNode.run(SKAction.repeatForever(pulseAction))
+        addChild(promptNode)
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first else { return }
-        let nodesAtTouch = nodes(at: touch.location(in: self))
-        
-        for node in nodesAtTouch {
-            if node.name == "play" {
-                let gameScene = GameScene(size: size)
-                gameScene.scaleMode = .resizeFill
-                view?.presentScene(gameScene, transition: .crossFade(withDuration: 0.5))
-            }
-        }
+        let transition = SKTransition.crossFade(withDuration: 1.0)
+        let gameScene = GameScene(size: size)
+        gameScene.scaleMode = .aspectFill
+        view?.presentScene(gameScene, transition: transition)
     }
 }
