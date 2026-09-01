@@ -36,7 +36,7 @@ jobs:
       - name: Package into IPA
         run: |
           mkdir -p Payload
-          cp -r build/Release-iphoneos/raga-io.app Payload/
+          cp -r build/Release-iphoneos/*.app Payload/
           zip -r raga-io.ipa Payload
 
       - name: Upload IPA Artifact
