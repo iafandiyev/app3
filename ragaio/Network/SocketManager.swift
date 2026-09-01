@@ -1,82 +1,69 @@
 import Foundation
+import Starscream
 
 protocol SocketManagerDelegate: AnyObject {
     func didReceiveState(players: [String: Any], food: [[String: Any]], viruses: [[String: Any]])
-    func didConnect()
-    func didDisconnect()
 }
 
-class SocketManager {
+class SocketManager: WebSocketDelegate {
     static let shared = SocketManager()
-    
-    private var webSocketTask: URLSessionWebSocketTask?
     weak var delegate: SocketManagerDelegate?
-    private let url = URL(string: "ws://127.0.0.1:3000")!
+    var socket: WebSocket!
+    var isConnected = false
     
-    private init() {}
+    private init() {
+        var request = URLRequest(url: URL(string: "ws://127.0.0.1:3000")!)
+        request.timeoutInterval = 5
+        socket = WebSocket(request: request)
+        socket.delegate = self
+    }
     
     func connect() {
-        let session = URLSession(configuration: .default)
-        webSocketTask = session.webSocketTask(with: url)
-        webSocketTask?.resume()
-        receiveMessage()
-        delegate?.didConnect()
+        socket.connect()
     }
     
     func disconnect() {
-        webSocketTask?.cancel(with: .goingAway, reason: nil)
-        delegate?.didDisconnect()
+        socket.disconnect()
     }
     
     func sendMessage(_ dict: [String: Any]) {
-        guard let data = try? JSONSerialization.data(withJSONObject: dict, options: []),
-              let string = String(data: data, encoding: .utf8) else {
-            return
-        }
-        
-        let message = URLSessionWebSocketTask.Message.string(string)
-        webSocketTask?.send(message) { error in
-            if let error = error {
-                print("WebSocket sending error: \(error)")
-            }
+        guard isConnected else { return }
+        if let data = try? JSONSerialization.data(withJSONObject: dict, options: []),
+           let string = String(data: data, encoding: .utf8) {
+            socket.write(string: string)
         }
     }
     
-    private func receiveMessage() {
-        webSocketTask?.receive { [weak self] result in
-            switch result {
-            case .failure(let error):
-                print("WebSocket receiving error: \(error)")
-                self?.delegate?.didDisconnect()
-            case .success(let message):
-                switch message {
-                case .string(let text):
-                    self?.handleIncomingMessage(text)
-                case .data(let data):
-                    if let text = String(data: data, encoding: .utf8) {
-                        self?.handleIncomingMessage(text)
-                    }
-                @unknown default:
-                    break
-                }
-                self?.receiveMessage()
-            }
+    func didReceive(event: WebSocketEvent, client: WebSocketClient) {
+        switch event {
+        case .connected(_):
+            isConnected = true
+            print("Connected to server")
+        case .disconnected(_, _):
+            isConnected = false
+            print("Disconnected from server")
+        case .text(let string):
+            handleMessage(string)
+        default:
+            break
         }
     }
     
-    private func handleIncomingMessage(_ text: String) {
+    private func handleMessage(_ text: String) {
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
             return
         }
         
-        if let type = json["type"] as? String, type == "state" {
+        let type = json["type"] as? String
+        
+        if type == "state" {
             let players = json["players"] as? [String: Any] ?? [:]
             let food = json["food"] as? [[String: Any]] ?? []
             let viruses = json["viruses"] as? [[String: Any]] ?? []
             
             DispatchQueue.main.async {
-                self?.delegate?.didReceiveState(players: players, food: food, viruses: viruses)
+                self.delegate?.didReceiveState(players: players, food: food, viruses: viruses)
             }
         }
     }
