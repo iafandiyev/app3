@@ -1,0 +1,49 @@
+name: Build Unsigned IPA
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build IPA
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode_15.0.app || sudo xcode-select -switch /Applications/Xcode_15.1.app || sudo xcode-select -switch /Applications/Xcode_15.2.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Build unsigned app
+        run: |
+          xcodebuild clean build \
+            -project raga-io.xcodeproj \
+            -scheme raga-io \
+            -configuration Release \
+            -arch arm64 \
+            -sdk iphoneos \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CONFIGURATION_BUILD_DIR=pwd/build/Release-iphoneos
+
+      - name: Package into IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/Release-iphoneos/raga-io.app Payload/
+          zip -r raga-io.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: raga-io-unsigned
+          path: raga-io.ipa
